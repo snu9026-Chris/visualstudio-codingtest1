@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>테스트: 강아지 vs 고양이 (Teachable Machine)</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .tester { max-width:900px; margin:40px auto; padding:24px; background:var(--ticket-bg); border-radius:16px; border:1px solid var(--border-color); }
+    .controls { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    #webcam, #snapshot { width: 320px; height: 240px; background:#111; border-radius:12px; }
+    .side { display:flex; gap:20px; align-items:flex-start; }
+    .predictions { font-weight:700; color:var(--text-color); }
+    .balls { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+    .ball { width:48px;height:48px;border-radius:999px;display:grid;place-items:center;background:rgba(0,0,0,0.12);border:1px solid rgba(0,0,0,0.08); font-weight:800; }
+    .note { color:var(--text-color); opacity:0.8; margin-top:8px; }
+    input[type=text].model-url { width:480px; padding:8px; border-radius:8px; border:1px solid var(--border-color); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card tester">
+      <h2>Teachable Machine 테스트 — 강아지 / 고양이</h2>
+      <p class="note">모델 URL을 붙여넣고 <b>Load Model</b>을 누르세요. (예: https://teachablemachine.withgoogle.com/models/your-model-id/)</p>
+
+      <div class="controls">
+        <input class="model-url" id="modelUrl" type="text" placeholder="https://teachablemachine.withgoogle.com/models/[ID]/" value="https://teachablemachine.withgoogle.com/models/[...]">
+        <button id="btnLoad">Load Model</button>
+        <button id="btnStart">Start Webcam</button>
+        <button id="btnStop">Stop Webcam</button>
+        <input id="upload" type="file" accept="image/*">
+      </div>
+
+      <div class="side">
+        <div>
+          <video id="webcam" autoplay muted playsinline></video>
+          <canvas id="snapshot" style="display:none;"></canvas>
+        </div>
+        <div>
+          <div class="predictions" id="predictions">모델이 로드되지 않았습니다.</div>
+          <div class="note">자동 생성 기준: 확률 &gt;= 0.70이면 자동으로 로또 번호 생성</div>
+          <div class="balls" id="balls"></div>
+          <button id="btnGen" style="margin-top:12px;">수동으로 로또 번호 생성</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <script>
+    let model, maxPredictions, webcam, isWebcamPlaying=false;
+
+    function pickUniqueNumbers(n, min, max){
+      const s=new Set(); while(s.size<n) s.add(Math.floor(Math.random()*(max-min+1))+min); return [...s].sort((a,b)=>a-b);
+    }
+
+    function renderNumbers(nums){
+      const box=document.getElementById('balls'); box.innerHTML=''; nums.forEach(n=>{ const el=document.createElement('div'); el.className='ball'; el.textContent=n; box.appendChild(el); });
+    }
+
+    async function loadModelFromUrl(url){
+      try{
+        document.getElementById('predictions').textContent='모델 로드 중...';
+        const modelURL = url + 'model.json';
+        const metadataURL = url + 'metadata.json';
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+        document.getElementById('predictions').textContent='모델 로드 완료. 웹캠을 시작하거나 이미지를 업로드하세요.';
+      }catch(err){
+        console.error(err); document.getElementById('predictions').textContent='모델 로드 실패: '+err.message;
+      }
+    }
+
+    async function startWebcam(){
+      if(!model){ alert('먼저 모델을 로드하세요'); return; }
+      const flip = true;
+      webcam = new tmImage.Webcam(320,240,flip);
+      await webcam.setup();
+      await webcam.play();
+      document.getElementById('webcam').srcObject = webcam.stream;
+      isWebcamPlaying=true;
+      requestAnimationFrame(loop);
+    }
+
+    function stopWebcam(){ if(webcam){ webcam.stop(); isWebcamPlaying=false; document.getElementById('webcam').srcObject=null; }}
+
+    async function loop(){
+      if(!isWebcamPlaying) return; webcam.update();
+      await predict(); requestAnimationFrame(loop);
+    }
+
+    async function predictFromImage(imgOrCanvas){
+      if(!model) return;
+      const prediction = await model.predict(imgOrCanvas);
+      prediction.sort((a,b)=>b.probability-a.probability);
+      const top = prediction[0];
+      const display = prediction.map(p=>`${p.className}: ${ (p.probability*100).toFixed(1)}%`).join('\n');
+      document.getElementById('predictions').textContent = display;
+      if(top.probability>=0.7){
+        // 자동 생성 규칙: 강아지면 6개, 고양이면 6개 (다른 규칙 원하면 변경)
+        const nums = pickUniqueNumbers(6,1,45);
+        renderNumbers(nums);
+      }
+      return prediction;
+    }
+
+    async function predict(){
+      if(!webcam) return;
+      const img = webcam.canvas; // tmImage.Webcam provides canvas
+      await predictFromImage(img);
+    }
+
+    // UI bindings
+    document.getElementById('btnLoad').addEventListener('click', ()=>{
+      const url = document.getElementById('modelUrl').value.trim();
+      if(!url) return alert('모델 URL을 입력하세요');
+      let normalized = url;
+      if(!normalized.endsWith('/')) normalized += '/';
+      loadModelFromUrl(normalized);
+    });
+
+    document.getElementById('btnStart').addEventListener('click', ()=>{ startWebcam().catch(e=>console.error(e)); });
+    document.getElementById('btnStop').addEventListener('click', ()=>{ stopWebcam(); });
+    document.getElementById('btnGen').addEventListener('click', ()=>{ renderNumbers(pickUniqueNumbers(6,1,45)); });
+
+    document.getElementById('upload').addEventListener('change', async (ev)=>{
+      const file = ev.target.files[0]; if(!file) return;
+      const img = new Image(); const url = URL.createObjectURL(file);
+      img.onload = async ()=>{ document.getElementById('snapshot').width=img.width; document.getElementById('snapshot').height=img.height; const ctx=document.getElementById('snapshot').getContext('2d'); ctx.drawImage(img,0,0,img.width,img.height); document.getElementById('snapshot').style.display='block'; await predictFromImage(document.getElementById('snapshot')); URL.revokeObjectURL(url); };
+      img.src = url;
+    });
+
+  </script>
+</body>
+</html>
