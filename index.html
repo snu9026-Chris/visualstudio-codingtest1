@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>로또 번호 추천기</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <div>
+          <h1>로또 번호 추천기</h1>
+          <div class="sub">
+            버튼을 누르면 <b>1~45</b> 중 <b>중복 없이 6개</b>를 뽑아 정렬해서 보여줘요.
+            (선택: 보너스 번호, 여러 게임 한 번에 뽑기)
+          </div>
+        </div>
+      </header>
+
+      <div class="controls">
+        <div class="row">
+          <div class="left">
+            <label>
+              게임 수
+              <input id="count" type="number" min="1" max="10" value="1" />
+            </label>
+            <label>
+              <input id="includeBonus" type="checkbox" checked />
+              보너스 포함
+            </label>
+            <label>
+              <input id="saveHistory" type="checkbox" checked />
+              히스토리 저장
+            </label>
+          </div>
+
+          <div class="btns">
+            <button class="primary" id="btnPick" type="button">번호 추천</button>
+            <button id="btnCopy" type="button">결과 복사</button>
+            <button id="btnClear" type="button">히스토리 삭제</button>
+          </div>
+        </div>
+
+        <div class="result" id="resultBox" aria-live="polite">
+          <div class="balls" id="balls"></div>
+          <div class="meta">
+            <div id="metaLeft">—</div>
+            <div id="metaRight">—</div>
+          </div>
+          <div class="toast" id="toast"></div>
+        </div>
+
+        <div class="warn" id="warn"></div>
+
+        <div class="history">
+          <h2>추천 히스토리</h2>
+          <div class="historyList" id="historyList"></div>
+        </div>
+      </div>
+
+      <footer>
+        ※ 완전 랜덤 추천이며 당첨을 보장하지 않습니다.
+      </footer>
+    </div>
+  </div>
+
+<script src="app.js"></script>
+</body>
+</html>
