@@ -6,140 +6,164 @@
   <title>동물상 테스트</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    body{padding:28px; text-align:center}
-    h1{margin-top:6px}
-    #webcam-container{margin:18px auto}
-    #label-container{margin-top:12px; white-space:pre-line}
-    .result-card{max-width:760px; margin:18px auto; background:var(--ticket-bg); padding:18px; border-radius:12px; box-shadow:0 8px 24px var(--shadow-color); color:var(--text-color)}
-    .personality{font-size:1.05rem; margin-top:10px}
-    .bars{display:flex; gap:8px; justify-content:center; margin-top:12px}
-    .bar{width:120px; background:#eee; border-radius:8px; padding:6px; text-align:left}
-    .bar > i{display:block; height:12px; border-radius:6px; background:linear-gradient(90deg,#ff9a9e,#fad0c4)}
-    .controls{display:flex; justify-content:center; gap:12px; margin-top:12px}
-    .small{font-size:0.9rem}
+    :root{--accent:#4f8ef7; --muted:#6b7280; --card:#fff}
+    body{padding:36px; font-family:Inter,system-ui,Segoe UI,Arial; background:linear-gradient(180deg,#f6fbff,#eef5ff); color:#0f172a}
+    .wrap{max-width:820px;margin:0 auto;text-align:center}
+    h1{margin:6px 0 2px; font-size:1.5rem}
+    p.lead{color:var(--muted); margin:0 0 18px}
+    .card{background:var(--card); border-radius:14px; padding:20px; box-shadow:0 8px 30px rgba(15,23,42,0.06)}
+
+    /* Mirror uploader */
+    .mirror-wrap{display:flex; flex-direction:column; align-items:center; gap:12px}
+    .mirror{width:260px; height:260px; border-radius:50%; background:linear-gradient(180deg,#ffffff,#f3f7ff); display:flex; align-items:center; justify-content:center; box-shadow:0 12px 30px rgba(12,20,40,0.08); position:relative; overflow:hidden; cursor:pointer}
+    .mirror img{width:100%; height:100%; object-fit:cover; display:block}
+    .mirror .placeholder{color:var(--muted); font-size:0.95rem; text-align:center; padding:18px}
+    input[type=file]{position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer}
+
+    .controls{display:flex; gap:10px; align-items:center; justify-content:center; margin-top:6px}
+    button.primary{background:var(--accent); color:white; border:none; padding:8px 14px; border-radius:10px; cursor:pointer}
+
+    .result-card{max-width:680px; margin:18px auto; background:var(--card); padding:16px; border-radius:12px; box-shadow:0 8px 24px rgba(12,20,40,0.06); text-align:left}
+    .row{display:flex; gap:12px; align-items:center}
+    .result-label{font-weight:700; font-size:1.15rem}
+    .score{color:var(--muted); font-size:0.95rem}
+    .personality{margin-top:8px}
+    .bars{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+    .bar{flex:1 0 30%; background:#f3f4f6; border-radius:8px; padding:8px}
+    .bar > i{display:block; height:10px; border-radius:6px; background:linear-gradient(90deg,var(--accent),#7bd389)}
+    @media(max-width:520px){ .mirror{width:200px;height:200px} .bar{flex-basis:48%} }
   </style>
 </head>
 <body>
-  <h1>당신의 동물상은?</h1>
-  <p class="small">웹캠으로 얼굴을 비추고 <strong>Start</strong>를 눌러보세요. 자동으로 가장 높은 확률의 동물을 판정합니다.</p>
-  <style>
-    :root{--card-bg:#ffffff; --accent:#4f8ef7; --muted:#6b7280}
-    body{padding:36px; font-family:Inter,system-ui,Segoe UI,Arial; background:linear-gradient(180deg,#f6fbff, #eef5ff); color:#0f172a}
-    .wrap{max-width:820px;margin:0 auto;text-align:center}
-    h1{margin:8px 0 6px; font-size:1.6rem}
-    p.lead{color:var(--muted);margin:0 0 18px}
-    .card{background:var(--card-bg); border-radius:14px; padding:20px; box-shadow:0 8px 30px rgba(15,23,42,0.06)}
-    .uploader{display:flex; gap:12px; align-items:center; justify-content:center; margin-top:12px}
-    input[type=file]{display:block}
-    #preview{max-width:320px; max-height:320px; border-radius:10px; margin:14px auto; box-shadow:0 6px 18px rgba(15,23,42,0.06)}
-    #result{margin-top:12px}
-    .label{font-weight:700; font-size:1.2rem}
-    .score{color:var(--muted); margin-top:4px}
-    .personality{margin-top:10px; color:#0f172a}
-    .bars{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:12px}
-    .bar{width:160px; background:#f3f4f6; border-radius:8px; padding:8px; text-align:left}
-    .bar > i{display:block; height:10px; border-radius:6px; background:linear-gradient(90deg,var(--accent),#7bd389)}
-    .muted{color:var(--muted); font-size:0.9rem}
-    button.primary{background:var(--accent); color:white; border:none; padding:8px 14px; border-radius:10px; cursor:pointer}
-    @media(max-width:520px){ .bar{width:48%} }
-  </style>
-    let model, webcam, maxPredictions;
+  <div class="wrap">
+    <h1>당신의 동물상은?</h1>
+    <p class="lead">사진을 업로드하면 Teachable Machine 모델로 동물 유형을 판정해 드립니다. (모델: bqtcKlKOT)</p>
 
-    async function init(){
+    <div class="card">
+      <div class="mirror-wrap">
+        <label class="mirror" id="mirrorLabel" title="사진을 클릭해 업로드">
+          <img id="preview" alt="미리보기" style="display:none">
+          <div class="placeholder" id="placeholderText">여기를 클릭해 사진 업로드<br><small class="muted">정면 얼굴 또는 동물 사진 권장</small></div>
+          <input id="imageInput" type="file" accept="image/*">
+        </label>
+
+        <div class="controls">
+          <button id="btnPredict" class="primary">판정하기</button>
+          <button id="btnReset">초기화</button>
+        </div>
+      </div>
+
+      <div id="result" class="result-card" style="display:none">
+        <div class="row">
+          <div>
+            <div class="result-label" id="topLabel">-</div>
+            <div class="score" id="topScore">신뢰도: -</div>
+          </div>
+        </div>
+        <div class="personality" id="personalityText"></div>
+        <div class="bars" id="bars"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 라이브러리 -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <script>
+    const MODEL_ROOT = 'https://teachablemachine.withgoogle.com/models/bqtcKlKOT/';
+    let model = null;
+
+    async function loadModel(){
+      if(model) return;
       try{
-        document.getElementById('label-container').textContent = '모델 로드 중...';
-        const modelURL = URL + 'model.json';
-        const metadataURL = URL + 'metadata.json';
+        const modelURL = MODEL_ROOT + 'model.json';
+        const metadataURL = MODEL_ROOT + 'metadata.json';
+        document.getElementById('placeholderText').textContent = '모델 로드 중...';
         model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
-        document.getElementById('label-container').textContent = '모델 로드 완료. 웹캠을 준비합니다...';
-
-        const flip = true;
-        webcam = new tmImage.Webcam(320, 240, flip);
-        await webcam.setup(); await webcam.play();
-        const container = document.getElementById('webcam-container');
-        container.innerHTML = '';
-        container.appendChild(webcam.canvas);
-        window.requestAnimationFrame(loop);
+        document.getElementById('placeholderText').textContent = '사진을 클릭해 업로드\n정면 또는 동물 사진 권장';
       }catch(err){
-        console.error(err); alert('모델 로드 또는 웹캠 초기화 실패. 콘솔을 확인하세요.');
+        console.error(err);
+        alert('모델 로드 실패. 콘솔을 확인하세요.');
       }
     }
 
-    async function loop(){
-      if(!webcam) return;
-      webcam.update();
-      const prediction = await model.predict(webcam.canvas);
+    async function predictImage(img){
+      await loadModel();
+      if(!model) return;
+      // draw to canvas to ensure correct input
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const prediction = await model.predict(canvas);
       showPredictions(prediction);
-      <script>
-        const URL = 'https://teachablemachine.withgoogle.com/models/bqtcKlKOT/';
-        let model, maxPredictions;
+    }
 
-        async function loadModel(){
-          if(model) return;
-          try{
-            const modelURL = URL + 'model.json';
-            const metadataURL = URL + 'metadata.json';
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
-          }catch(err){ console.error(err); alert('모델 로드 실패. 콘솔을 확인하세요.'); }
-        }
+    function showPredictions(prediction){
+      prediction.sort((a,b)=>b.probability - a.probability);
+      const top = prediction[0];
+      const scoreText = (top.probability*100).toFixed(1) + '%';
+      document.getElementById('topLabel').textContent = prettifyLabel(top.className);
+      document.getElementById('topScore').textContent = '신뢰도: ' + scoreText;
+      document.getElementById('personalityText').textContent = personalityFor(top.className, top.probability);
+      document.getElementById('result').style.display = 'block';
 
-        async function predictImage(img){
-          await loadModel();
-          const canvas = document.createElement('canvas'); canvas.width = img.naturalWidth; canvas.height = img.naturalHeight; const ctx = canvas.getContext('2d'); ctx.drawImage(img,0,0);
-          const prediction = await model.predict(canvas);
-          showPredictions(prediction);
-        }
+      const bars = document.getElementById('bars'); bars.innerHTML = '';
+      for(let i=0;i<Math.min(prediction.length,6);i++){
+        const p = prediction[i];
+        const box = document.createElement('div'); box.className='bar';
+        const label = document.createElement('div'); label.textContent = prettifyLabel(p.className) + ' ' + (p.probability*100).toFixed(0) + '%';
+        const barInner = document.createElement('i'); barInner.style.width = Math.max(6, p.probability*100) + '%';
+        box.appendChild(label); box.appendChild(barInner); bars.appendChild(box);
+      }
+    }
 
-        function showPredictions(prediction){
-          prediction.sort((a,b)=>b.probability-a.probability);
-          const top = prediction[0];
-          const score = (top.probability*100).toFixed(1) + '%';
-          document.getElementById('topLabel').textContent = prettifyLabel(top.className);
-          document.getElementById('topScore').textContent = '신뢰도: ' + score;
-          document.getElementById('personalityText').textContent = personalityFor(top.className, top.probability);
-          document.getElementById('result').style.display = 'block';
+    function prettifyLabel(name){ return name.replace(/[_-]/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); }
 
-          const bars = document.getElementById('bars'); bars.innerHTML = '';
-          for(let i=0;i<Math.min(prediction.length,6);i++){
-            const p = prediction[i];
-            const box = document.createElement('div'); box.className='bar';
-            const label = document.createElement('div'); label.textContent = prettifyLabel(p.className) + ' ' + (p.probability*100).toFixed(0) + '%';
-            const barInner = document.createElement('i'); barInner.style.width = Math.max(6, p.probability*100) + '%';
-            box.appendChild(label); box.appendChild(barInner); bars.appendChild(box);
-          }
-        }
+    function personalityFor(name, prob){
+      const map = {
+        'Dog':'충성스러운 타입 — 친구가 필요하면 달려갑니다!',
+        'Cat':'자유분방하고 예민한 감성의 소유자입니다.',
+        'Rabbit':'온화하고 따뜻한 성격으로 주변을 편안하게 합니다.',
+        'Hamster':'소소한 즐거움과 귀여움을 사랑합니다.',
+        'Fox':'영리하고 재치있으며 계획적인 편입니다.',
+        'Bird':'아이디어가 많고 호기심이 많은 자유로운 영혼입니다.'
+      };
+      const key = prettifyLabel(name);
+      if(map[key]) return map[key];
+      return `${key} 유형으로 보입니다. (신뢰도 ${(prob*100).toFixed(0)}%)`;
+    }
 
-        function prettifyLabel(name){ return name.replace(/[_-]/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); }
+    // UI bindings
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    const placeholderText = document.getElementById('placeholderText');
+    const btnPredict = document.getElementById('btnPredict');
+    const btnReset = document.getElementById('btnReset');
 
-        function personalityFor(name, prob){
-          const map = {
-            'Dog':'충성스러운 타입 — 친구가 필요하면 달려갑니다!',
-            'Cat':'자유분방하고 예민한 감성의 소유자입니다.',
-            'Rabbit':'온화하고 따뜻한 성격으로 주변을 편안하게 합니다.',
-            'Hamster':'소소한 즐거움과 귀여움을 사랑합니다.',
-            'Fox':'영리하고 재치있으며 계획적인 편입니다.',
-            'Bird':'아이디어가 많고 호기심이 많은 자유로운 영혼입니다.'
-          };
-          const key = prettifyLabel(name);
-          if(map[key]) return map[key];
-          return `${key} 유형으로 보입니다. (신뢰도 ${(prob*100).toFixed(0)}%)`;
-        }
+    imageInput.addEventListener('change', (e)=>{
+      const f = e.target.files && e.target.files[0]; if(!f) return;
+      const url = window.URL.createObjectURL(f);
+      preview.src = url; preview.style.display = 'block'; placeholderText.style.display = 'none';
+      preview.onload = ()=>{ predictImage(preview); };
+    });
 
-        // UI bindings
-        const imageInput = document.getElementById('imageInput');
-        const preview = document.getElementById('preview');
-        const btnPredict = document.getElementById('btnPredict');
+    btnPredict.addEventListener('click', ()=>{
+      if(preview.src) predictImage(preview); else alert('이미지를 먼저 선택하세요.');
+    });
 
-        imageInput.addEventListener('change', (e)=>{
-          const f = e.target.files && e.target.files[0]; if(!f) return;
-          const url = URLCreateObjectURL(f);
-          preview.src = url; preview.style.display='block'; document.getElementById('result').style.display='none';
-          preview.onload = ()=>{ predictImage(preview); };
-        });
+    btnReset.addEventListener('click', ()=>{
+      preview.src = '';
+      preview.style.display = 'none';
+      placeholderText.style.display = 'block';
+      document.getElementById('result').style.display = 'none';
+      imageInput.value = '';
+    });
 
-        btnPredict.addEventListener('click', ()=>{ if(preview.src) predictImage(preview); else alert('이미지를 먼저 선택하세요.'); });
-
-        function URLCreateObjectURL(file){ try{ return window.URL.createObjectURL(file);}catch(e){return ''} }
-      </script>
+    // preload model to reduce first-time latency
+    loadModel();
+  </script>
+</body>
+</html>
