@@ -47,12 +47,31 @@
     async function loadModelFromURL(url){
       const modelURL = url + (url.endsWith('/')? 'model.json':'/model.json');
       const metadataURL = url + (url.endsWith('/')? 'metadata.json':'/metadata.json');
-      model = await tmImage.load(modelURL, metadataURL);
+        // quick pre-check for network/CORS issues
+        try{
+          await checkModelUrl(modelURL);
+        }catch(e){
+          console.error('model URL fetch failed:', e);
+          document.getElementById('uploadPreview').innerText = '원격 모델 접근 실패: ' + (e.message || e);
+          throw e;
+        }
+        model = await tmImage.load(modelURL, metadataURL);
       maxPredictions = model.getTotalClasses();
       labelContainer = document.getElementById('label-container');
       labelContainer.innerHTML = '';
       for (let i = 0; i < maxPredictions; i++) labelContainer.appendChild(document.createElement('div'));
       document.getElementById('uploadPreview').innerText = '모델 로드 완료. 웹캠 또는 이미지 업로드로 테스트하세요.';
+        // fetch-based check to surface network / CORS errors early
+        async function checkModelUrl(url){
+          try{
+            const resp = await fetch(url, {method:'GET'});
+            if(!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + resp.statusText);
+            return true;
+          }catch(err){
+            // rethrow to be handled by caller; typical CORS failure will be TypeError: Failed to fetch
+            throw err;
+          }
+        }
     }
 
     // fallback: load default local model
