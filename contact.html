@@ -166,19 +166,22 @@
     <!-- Disqus Comments -->
     <div class="comments-section">
         <div id="disqus_thread"></div>
-        <script>
-            var disqus_config = function () {
-            this.page.url = window.location.href;
-            this.page.identifier = 'lotto-contact-page';
+    </div>
+
+    <script>
+        // Disqus 설정 및 로드
+        document.addEventListener('DOMContentLoaded', () => {
+            window.disqus_config = function () {
+                this.page.url = window.location.href;
+                this.page.identifier = 'lotto-contact-page';
             };
-            (function() {
-            var d = document, s = d.createElement('script');
+            
+            let d = document, s = d.createElement('script');
             s.src = 'https://codingtest-5.disqus.com/embed.js';
             s.setAttribute('data-timestamp', +new Date());
             (d.head || d.body).appendChild(s);
-            })();
-        </script>
-        <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
-    </div>
+        });
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
 </body>
 </html>
