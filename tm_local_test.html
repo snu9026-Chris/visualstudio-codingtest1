@@ -31,6 +31,12 @@
     <div id="uploadPreview" style="margin-top:8px;"></div>
   </div>
 
+  <div style="margin-top:14px;">
+    <div style="margin-bottom:6px; font-weight:600;">모델 파일 직접 업로드 (model.json, metadata.json, *.bin 파일들 선택)</div>
+    <input id="modelFilesPicker" type="file" accept=".json,.bin" multiple>
+    <div class="note">참고: 브라우저의 tmImage.build에 따라 tmImage.loadFromFiles가 없을 수 있습니다. 실패 시 my_model 폴더 또는 원격 URL을 사용하세요.</div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
   <script type="text/javascript">
@@ -98,6 +104,31 @@
     // local folder picker: not reliable in browsers to load via file list; show instruction
     document.getElementById('localModelPicker').addEventListener('change', (e)=>{
       document.getElementById('uploadPreview').innerText = '브라우저는 폴더 선택으로 자동 로드할 수 없습니다. my_model 폴더를 tm_local_test.html과 동일 위치에 복사하세요.';
+    });
+
+    // model files picker: try tmImage.loadFromFiles if available
+    document.getElementById('modelFilesPicker').addEventListener('change', async (e)=>{
+      const files = Array.from(e.target.files || []);
+      if(files.length === 0) return;
+      document.getElementById('uploadPreview').innerText = '모델 파일 로드 중...';
+      try{
+        if(typeof tmImage.loadFromFiles === 'function'){
+          // Some tmImage builds expose loadFromFiles(files, metadataFile)
+          const metadataFile = files.find(f=>/metadata\.json$/i.test(f.name));
+          model = await tmImage.loadFromFiles(files, metadataFile || null);
+        } else {
+          throw new Error('tmImage.loadFromFiles is not available in this build');
+        }
+        maxPredictions = model.getTotalClasses();
+        labelContainer = document.getElementById('label-container');
+        labelContainer.innerHTML = '';
+        for (let i = 0; i < maxPredictions; i++) labelContainer.appendChild(document.createElement('div'));
+        document.getElementById('uploadPreview').innerText = '모델 업로드로 로드 완료. 이제 웹캠 또는 이미지 업로드로 테스트하세요.';
+      }catch(err){
+        console.error('loadFromFiles failed:', err);
+        document.getElementById('uploadPreview').innerText = '모델 파일 업로드로 로드하지 못했습니다. my_model 폴더 또는 URL 방식을 사용하세요.';
+        alert('모델 파일 로드 실패: 브라우저에서 파일로 직접 로드하는 것을 지원하지 않거나 파일이 올바르지 않습니다. 콘솔을 확인하세요.');
+      }
     });
 
     // Try default local model at load (non-blocking)
