@@ -177,6 +177,19 @@
 
     // Try default local model at load (non-blocking)
     (async ()=>{ try{ await loadDefaultModel(); }catch(e){ /* ignore */ } })();
+
+    // Pre-fill with user-provided remote model and try auto-loading it
+    (async ()=>{
+      try{
+        const preset = 'https://teachablemachine.withgoogle.com/models/bqtcKlKOT/';
+        document.getElementById('modelInput').value = preset;
+        await loadModelFromURL(preset);
+      }catch(err){
+        console.warn('Auto-load preset model failed:', err);
+        // don't alert user to avoid double messages; page shows uploadPreview state
+        document.getElementById('uploadPreview').innerText = '원격 모델 자동로드 실패(콘솔 확인). URL을 확인하거나 Load Model URL 버튼을 클릭하세요.';
+      }
+    })();
   </script>
 </body>
 </html>
