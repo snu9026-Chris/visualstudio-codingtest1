@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TM Local Model Test</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { padding:40px; }
+    #webcam-container canvas { border-radius:8px; }
+    #label-container { margin-top:12px; white-space:pre-line; }
+    .note { margin-top:8px; color:var(--text-color); }
+  </style>
+</head>
+<body>
+  <h2>Teachable Machine Local Model Test (강아지 vs 고양이)</h2>
+  <div class="note">모델 폴더(`my_model/`)를 `tm_local_test.html`과 동일한 위치에 넣고 사용하세요.</div>
+  <div style="margin-top:12px;">
+    <div>Teachable Machine Image Model</div>
+    <button type="button" onclick="init()">Start</button>
+  </div>
+  <div id="webcam-container"></div>
+  <div id="label-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script type="text/javascript">
+    // the link to your model provided by Teachable Machine export panel (local folder)
+    const URL = "./my_model/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    // Load the image model and setup the webcam
+    async function init() {
+        try{
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // convenience: set up webcam
+            const flip = true;
+            webcam = new tmImage.Webcam(200, 200, flip);
+            await webcam.setup();
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            labelContainer.innerHTML = '';
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }catch(err){
+            console.error('Failed to init model or webcam:', err);
+            alert('모델 로드 또는 웹캠 초기화에 실패했습니다. 콘솔을 확인하세요.');
+        }
+    }
+
+    async function loop() {
+        webcam.update();
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        if(!model) return;
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+    }
+  </script>
+</body>
+</html>
