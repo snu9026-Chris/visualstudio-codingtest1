@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>동물상 테스트</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body{padding:28px; text-align:center}
+    h1{margin-top:6px}
+    #webcam-container{margin:18px auto}
+    #label-container{margin-top:12px; white-space:pre-line}
+    .result-card{max-width:760px; margin:18px auto; background:var(--ticket-bg); padding:18px; border-radius:12px; box-shadow:0 8px 24px var(--shadow-color); color:var(--text-color)}
+    .personality{font-size:1.05rem; margin-top:10px}
+    .bars{display:flex; gap:8px; justify-content:center; margin-top:12px}
+    .bar{width:120px; background:#eee; border-radius:8px; padding:6px; text-align:left}
+    .bar > i{display:block; height:12px; border-radius:6px; background:linear-gradient(90deg,#ff9a9e,#fad0c4)}
+    .controls{display:flex; justify-content:center; gap:12px; margin-top:12px}
+    .small{font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <h1>당신의 동물상은?</h1>
+  <p class="small">웹캠으로 얼굴을 비추고 <strong>Start</strong>를 눌러보세요. 자동으로 가장 높은 확률의 동물을 판정합니다.</p>
+
+  <div class="controls">
+    <button id="btnStart">Start</button>
+    <button id="btnStop">Stop</button>
+    <button id="btnSnap">Snapshot</button>
+  </div>
+
+  <div id="webcam-container"></div>
+  <div id="label-container"></div>
+
+  <div class="result-card" id="resultCard" style="display:none">
+    <h2 id="topLabel">-</h2>
+    <div id="topScore" class="small">신뢰도: -</div>
+    <div class="personality" id="personalityText">결과 설명이 여기에 표시됩니다.</div>
+    <div class="bars" id="bars"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script>
+    const URL = 'https://teachablemachine.withgoogle.com/models/bqtcKlKOT/';
+    let model, webcam, maxPredictions;
+
+    async function init(){
+      try{
+        document.getElementById('label-container').textContent = '모델 로드 중...';
+        const modelURL = URL + 'model.json';
+        const metadataURL = URL + 'metadata.json';
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+        document.getElementById('label-container').textContent = '모델 로드 완료. 웹캠을 준비합니다...';
+
+        const flip = true;
+        webcam = new tmImage.Webcam(320, 240, flip);
+        await webcam.setup(); await webcam.play();
+        const container = document.getElementById('webcam-container');
+        container.innerHTML = '';
+        container.appendChild(webcam.canvas);
+        window.requestAnimationFrame(loop);
+      }catch(err){
+        console.error(err); alert('모델 로드 또는 웹캠 초기화 실패. 콘솔을 확인하세요.');
+      }
+    }
+
+    async function loop(){
+      if(!webcam) return;
+      webcam.update();
+      const prediction = await model.predict(webcam.canvas);
+      showPredictions(prediction);
+      requestAnimationFrame(loop);
+    }
+
+    function showPredictions(prediction){
+      prediction.sort((a,b)=>b.probability-a.probability);
+      const top = prediction[0];
+      const score = (top.probability*100).toFixed(1) + '%';
+      document.getElementById('topLabel').textContent = top.className;
+      document.getElementById('topScore').textContent = '신뢰도: ' + score;
+      document.getElementById('resultCard').style.display = 'block';
+      document.getElementById('personalityText').textContent = personalityFor(top.className, top.probability);
+
+      const bars = document.getElementById('bars'); bars.innerHTML = '';
+      for(let i=0;i<Math.min(prediction.length,6);i++){
+        const p = prediction[i];
+        const box = document.createElement('div'); box.className='bar';
+        const label = document.createElement('div'); label.textContent = p.className + ' ' + (p.probability*100).toFixed(0) + '%';
+        const barInner = document.createElement('i'); barInner.style.width = Math.max(4, p.probability*100) + '%';
+        box.appendChild(label); box.appendChild(barInner); bars.appendChild(box);
+      }
+    }
+
+    function personalityFor(name, prob){
+      // 재미있는 설명을 클래스 이름에 따라 매핑합니다. 알려지지 않은 이름은 기본 텍스트 사용.
+      const map = {
+        'dog': '충성심이 강한 당신은 친구들의 든든한 편입니다. 모험을 좋아하고 활발해요!',
+        'cat': '개성 있고 관찰력이 뛰어납니다. 혼자만의 시간을 소중히 여기는 스타일이군요.',
+        'rabbit': '온화하고 상냥한 성격, 주변을 편안하게 만듭니다.',
+        'hamster': '귀엽고 소소한 즐거움을 찾는 타입! 작은 취미가 많아요.',
+        'fox': '영리하고 수려한 매력의 소유자, 약간의 장난기도 있네요.',
+        'bird': '자유로운 영혼, 아이디어가 많고 말이 많은 편일 수 있어요.'
+      };
+      // 소문자 매칭
+      const key = name.toLowerCase();
+      if(map[key]) return map[key];
+      // 기본 설명: name을 사용해 맞춤 메시지
+      const confidence = Math.round(prob*100);
+      return `${name} 유형으로 보입니다 (신뢰도 ${confidence}%). 당신은 호기심 많고 유연한 면이 있어요.`;
+    }
+
+    document.getElementById('btnStart').addEventListener('click', ()=>{ if(!model) init(); else { if(!webcam){ init(); } } });
+    document.getElementById('btnStop').addEventListener('click', ()=>{ if(webcam){ webcam.stop(); document.getElementById('webcam-container').innerHTML=''; webcam=null; } });
+    document.getElementById('btnSnap').addEventListener('click', async ()=>{ if(!model || !webcam) return; const canvas = document.createElement('canvas'); canvas.width = webcam.canvas.width; canvas.height = webcam.canvas.height; canvas.getContext('2d').drawImage(webcam.canvas,0,0); const pred = await model.predict(canvas); showPredictions(pred); });
+  </script>
+</body>
+</html>
