@@ -18,15 +18,89 @@
 
 body {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-start;
     align-items: center;
     min-height: 100vh;
     background: var(--bg-gradient);
     font-family: 'Poppins', sans-serif;
-    overflow: hidden;
+    overflow-y: auto;
     margin: 0;
+    padding: 80px 20px 40px;
     transition: background 0.3s ease;
 }
+
+/* Contact Form Styles */
+.contact-container {
+    background: var(--ticket-bg);
+    color: var(--text-color);
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px var(--shadow-color);
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 40px;
+    border: 1px solid var(--border-color);
+    z-index: 10;
+}
+
+.contact-container h2 {
+    margin-top: 0;
+    color: var(--text-color);
+    text-align: center;
+}
+
+.contact-container p {
+    font-size: 0.9em;
+    text-align: center;
+    margin-bottom: 25px;
+    opacity: 0.8;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.form-group input, 
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--text-color);
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+[data-theme="dark"] .form-group input,
+[data-theme="dark"] .form-group textarea {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #1e3c72;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.submit-btn:hover {
+    background: #2a5298;
+}
+
 
 body::before {
     content: '';
