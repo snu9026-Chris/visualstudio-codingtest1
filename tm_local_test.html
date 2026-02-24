@@ -131,84 +131,75 @@
       if(files.length === 0) return;
       document.getElementById('uploadPreview').innerText = '모델 파일 로드 중...';
       try{
-        // find model.json
-        const modelFile = files.find(f=>/model\.json$/i.test(f.name));
-        if(!modelFile) throw new Error('model.json 파일을 찾을 수 없습니다.');
+        <!doctype html>
+        <html lang="ko">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>TM Remote Model Test</title>
+          <link rel="stylesheet" href="style.css">
+          <style>body{padding:30px} #webcam-container canvas{border-radius:8px} #label-container{margin-top:12px}</style>
+        </head>
+        <body>
+          <h2>Teachable Machine 이미지 테스트</h2>
+          <div class="note">원격 모델: https://teachablemachine.withgoogle.com/models/bqtcKlKOT/</div>
+          <div style="margin-top:12px;">
+            <div>Teachable Machine Image Model</div>
+            <button type="button" onclick="init()">Start</button>
+          </div>
+          <div id="webcam-container"></div>
+          <div id="label-container"></div>
 
-        // find metadata if present
-        const metadataFile = files.find(f=>/metadata\.json$/i.test(f.name));
+          <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+          <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+          <script type="text/javascript">
+            // the link to your model provided by Teachable Machine export panel
+            const URL = "https://teachablemachine.withgoogle.com/models/bqtcKlKOT/";
 
-        // create blob URLs for all files (including .bin)
-        const blobUrlMap = {};
-        for(const f of files){ blobUrlMap[f.name] = URL.createObjectURL(f); }
+            let model, webcam, labelContainer, maxPredictions;
 
-        // read and patch model.json to point to blob URLs for weight files
-        const modelText = await modelFile.text();
-        const modelJson = JSON.parse(modelText);
-        if(modelJson.weightsManifest && Array.isArray(modelJson.weightsManifest)){
-          for(const manifest of modelJson.weightsManifest){
-            if(Array.isArray(manifest.paths)){
-              for(let i=0;i<manifest.paths.length;i++){
-                const orig = manifest.paths[i];
-                const name = orig.split('/').pop();
-                if(blobUrlMap[name]) manifest.paths[i] = blobUrlMap[name];
-              }
+            // Load the image model and setup the webcam
+            async function init() {
+                try{
+                    const modelURL = URL + "model.json";
+                    const metadataURL = URL + "metadata.json";
+
+                    model = await tmImage.load(modelURL, metadataURL);
+                    maxPredictions = model.getTotalClasses();
+
+                    const flip = true;
+                    webcam = new tmImage.Webcam(200, 200, flip);
+                    await webcam.setup();
+                    await webcam.play();
+                    window.requestAnimationFrame(loop);
+
+                    document.getElementById("webcam-container").appendChild(webcam.canvas);
+                    labelContainer = document.getElementById("label-container");
+                    labelContainer.innerHTML = '';
+                    for (let i = 0; i < maxPredictions; i++) {
+                        labelContainer.appendChild(document.createElement("div"));
+                    }
+                }catch(err){
+                    console.error('Failed to init model or webcam:', err);
+                    alert('모델 로드 또는 웹캠 초기화에 실패했습니다. 콘솔을 확인하세요.');
+                }
             }
-          }
-        }
 
-        // create blob URL for modified model.json
-        const patchedModelBlob = new Blob([JSON.stringify(modelJson)], {type:'application/json'});
-        const patchedModelURL = URL.createObjectURL(patchedModelBlob);
+            async function loop() {
+                webcam.update();
+                await predict();
+                window.requestAnimationFrame(loop);
+            }
 
-        // create blob URL for metadata (if provided) or null
-        let metadataURL = null;
-        if(metadataFile){ metadataURL = URL.createObjectURL(metadataFile); }
-
-        // load model using tmImage.load with blob URLs
-        model = await tmImage.load(patchedModelURL, metadataURL);
-
-        // set up labels
-        maxPredictions = model.getTotalClasses();
-        labelContainer = document.getElementById('label-container');
-        labelContainer.innerHTML = '';
-        for (let i = 0; i < maxPredictions; i++) labelContainer.appendChild(document.createElement('div'));
-
-        document.getElementById('uploadPreview').innerText = '모델 업로드로 로드 완료. 이제 웹캠 또는 이미지 업로드로 테스트하세요.';
-
-        // store blob URLs to revoke later when page unloads
-        window.__tm_blob_urls = window.__tm_blob_urls || [];
-        Object.values(blobUrlMap).forEach(u=>window.__tm_blob_urls.push(u));
-        window.__tm_blob_urls.push(patchedModelURL);
-        if(metadataURL) window.__tm_blob_urls.push(metadataURL);
-
-      }catch(err){
-        console.error('model file load failed:', err);
-        document.getElementById('uploadPreview').innerText = '모델 파일 업로드로 로드하지 못했습니다. my_model 폴더 또는 URL 방식을 사용하세요.';
-        alert('모델 파일 로드 실패: '+(err.message||err));
-      }
-    });
-
-    // revoke created blob URLs on page unload
-    window.addEventListener('unload', ()=>{
-      if(window.__tm_blob_urls){ window.__tm_blob_urls.forEach(u=>URL.revokeObjectURL(u)); }
-    });
-
-    // Try default local model at load (non-blocking)
-    (async ()=>{ try{ await loadDefaultModel(); }catch(e){ /* ignore */ } })();
-
-    // Pre-fill with user-provided remote model and try auto-loading it
-    (async ()=>{
-      try{
-        const preset = 'https://teachablemachine.withgoogle.com/models/bqtcKlKOT/';
-        document.getElementById('modelInput').value = preset;
-        await loadModelFromURL(preset);
-      }catch(err){
-        console.warn('Auto-load preset model failed:', err);
-        // don't alert user to avoid double messages; page shows uploadPreview state
-        document.getElementById('uploadPreview').innerText = '원격 모델 자동로드 실패(콘솔 확인). URL을 확인하거나 Load Model URL 버튼을 클릭하세요.';
-      }
-    })();
-  </script>
-</body>
-</html>
+            // run the webcam image through the image model
+            async function predict() {
+                const prediction = await model.predict(webcam.canvas);
+                for (let i = 0; i < maxPredictions; i++) {
+                    const classPrediction =
+                        prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                    labelContainer.childNodes[i].innerHTML = classPrediction;
+                }
+            }
+          </script>
+        </body>
+        </html>
