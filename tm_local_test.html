@@ -106,29 +106,73 @@
       document.getElementById('uploadPreview').innerText = '브라우저는 폴더 선택으로 자동 로드할 수 없습니다. my_model 폴더를 tm_local_test.html과 동일 위치에 복사하세요.';
     });
 
-    // model files picker: try tmImage.loadFromFiles if available
+    // model files picker: build blob-URL-backed model.json + metadata then load
     document.getElementById('modelFilesPicker').addEventListener('change', async (e)=>{
       const files = Array.from(e.target.files || []);
       if(files.length === 0) return;
       document.getElementById('uploadPreview').innerText = '모델 파일 로드 중...';
       try{
-        if(typeof tmImage.loadFromFiles === 'function'){
-          // Some tmImage builds expose loadFromFiles(files, metadataFile)
-          const metadataFile = files.find(f=>/metadata\.json$/i.test(f.name));
-          model = await tmImage.loadFromFiles(files, metadataFile || null);
-        } else {
-          throw new Error('tmImage.loadFromFiles is not available in this build');
+        // find model.json
+        const modelFile = files.find(f=>/model\.json$/i.test(f.name));
+        if(!modelFile) throw new Error('model.json 파일을 찾을 수 없습니다.');
+
+        // find metadata if present
+        const metadataFile = files.find(f=>/metadata\.json$/i.test(f.name));
+
+        // create blob URLs for all files (including .bin)
+        const blobUrlMap = {};
+        for(const f of files){ blobUrlMap[f.name] = URL.createObjectURL(f); }
+
+        // read and patch model.json to point to blob URLs for weight files
+        const modelText = await modelFile.text();
+        const modelJson = JSON.parse(modelText);
+        if(modelJson.weightsManifest && Array.isArray(modelJson.weightsManifest)){
+          for(const manifest of modelJson.weightsManifest){
+            if(Array.isArray(manifest.paths)){
+              for(let i=0;i<manifest.paths.length;i++){
+                const orig = manifest.paths[i];
+                const name = orig.split('/').pop();
+                if(blobUrlMap[name]) manifest.paths[i] = blobUrlMap[name];
+              }
+            }
+          }
         }
+
+        // create blob URL for modified model.json
+        const patchedModelBlob = new Blob([JSON.stringify(modelJson)], {type:'application/json'});
+        const patchedModelURL = URL.createObjectURL(patchedModelBlob);
+
+        // create blob URL for metadata (if provided) or null
+        let metadataURL = null;
+        if(metadataFile){ metadataURL = URL.createObjectURL(metadataFile); }
+
+        // load model using tmImage.load with blob URLs
+        model = await tmImage.load(patchedModelURL, metadataURL);
+
+        // set up labels
         maxPredictions = model.getTotalClasses();
         labelContainer = document.getElementById('label-container');
         labelContainer.innerHTML = '';
         for (let i = 0; i < maxPredictions; i++) labelContainer.appendChild(document.createElement('div'));
+
         document.getElementById('uploadPreview').innerText = '모델 업로드로 로드 완료. 이제 웹캠 또는 이미지 업로드로 테스트하세요.';
+
+        // store blob URLs to revoke later when page unloads
+        window.__tm_blob_urls = window.__tm_blob_urls || [];
+        Object.values(blobUrlMap).forEach(u=>window.__tm_blob_urls.push(u));
+        window.__tm_blob_urls.push(patchedModelURL);
+        if(metadataURL) window.__tm_blob_urls.push(metadataURL);
+
       }catch(err){
-        console.error('loadFromFiles failed:', err);
+        console.error('model file load failed:', err);
         document.getElementById('uploadPreview').innerText = '모델 파일 업로드로 로드하지 못했습니다. my_model 폴더 또는 URL 방식을 사용하세요.';
-        alert('모델 파일 로드 실패: 브라우저에서 파일로 직접 로드하는 것을 지원하지 않거나 파일이 올바르지 않습니다. 콘솔을 확인하세요.');
+        alert('모델 파일 로드 실패: '+(err.message||err));
       }
+    });
+
+    // revoke created blob URLs on page unload
+    window.addEventListener('unload', ()=>{
+      if(window.__tm_blob_urls){ window.__tm_blob_urls.forEach(u=>URL.revokeObjectURL(u)); }
     });
 
     // Try default local model at load (non-blocking)
