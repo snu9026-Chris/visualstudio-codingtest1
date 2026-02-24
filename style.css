@@ -157,3 +157,19 @@ body::before {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
+
+/* Comments Section */
+.comments-section {
+    width: 100%;
+    max-width: 800px;
+    margin-top: 60px;
+    padding: 40px 20px;
+    background: var(--ticket-bg);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px var(--shadow-color);
+    border: 1px solid var(--border-color);
+}
+
+#disqus_thread {
+    color: var(--text-color);
+}
